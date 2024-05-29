@@ -1,0 +1,65 @@
+Unix shell script that retrieves the high CPU and memory usage of Java threads from a WebSphere Application Server JVM running on two Linux machines. This script assumes you have SSH access to the remote servers and the necessary permissions to monitor JVM processes.
+
+Prerequisites
+Ensure SSH access to the remote servers.
+Ensure the necessary permissions and tools (such as top, ps) are available on the remote machines.
+
+#!/bin/bash
+
+# List of remote servers
+servers=("192.168.1.101" "192.168.1.102")
+ssh_user="your_ssh_user"
+
+# Function to get high CPU and memory usage of JVM threads
+get_jvm_usage() {
+    local server=$1
+    echo "Connecting to $server..."
+
+    # Find WebSphere JVM process ID
+    jvm_pid=$(ssh ${ssh_user}@${server} "ps -eo pid,cmd | grep -i 'WebSphere' | grep -i 'java' | grep -v 'grep' | awk '{print \$1}'")
+    
+    if [ -z "$jvm_pid" ]; then
+        echo "No WebSphere JVM process found on $server."
+        return
+    fi
+
+    echo "WebSphere JVM process ID on $server: $jvm_pid"
+
+    # Get high CPU and memory usage of JVM threads
+    thread_usage=$(ssh ${ssh_user}@${server} "top -b -n1 -H -p $jvm_pid | grep java | awk '{print \$1, \$9, \$10, \$12}' | sort -k2nr | head -n 10")
+
+    echo "High CPU and memory usage of JVM threads on $server:"
+    echo "$thread_usage"
+    echo
+}
+
+# Iterate over the list of servers and get JVM usage
+for server in "${servers[@]}"; do
+    get_jvm_usage $server
+done
+
+
+Explanation
+Server List: The servers array contains the IP addresses of the remote servers.
+SSH User: The ssh_user variable contains the username used for SSH connections.
+Function get_jvm_usage:
+Connects to the remote server using ssh.
+Finds the WebSphere JVM process ID using the ps command.
+Checks if the JVM process ID is found. If not, it prints a message and returns.
+If the JVM process ID is found, it retrieves the high CPU and memory usage of JVM threads using the top command, sorts the output, and prints the top 10 threads.
+Main Loop: Iterates over the list of servers and calls the get_jvm_usage function for each server.
+
+Running the Script
+Save the script to a file, e.g., get_jvm_usage.sh.
+
+Make the script executable:
+chmod +x get_jvm_usage.sh
+
+Run the script:
+./get_jvm_usage.sh
+
+
+Note
+Adjust the commands and filters in the ssh commands as necessary to fit your specific WebSphere setup and the monitoring tools available.
+Ensure the SSH user has the necessary permissions to monitor JVM processes and gather system resource usage information.
+
