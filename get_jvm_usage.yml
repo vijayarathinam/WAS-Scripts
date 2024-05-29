@@ -1,0 +1,24 @@
+---
+- name: Get high CPU and memory usage of Java threads from WebSphere JVM
+  hosts: jvm_servers
+  become: yes
+  tasks:
+    - name: Find WebSphere JVM process ID
+      shell: |
+        ps -eo pid,cmd | grep -i 'WebSphere' | grep -i 'java' | grep -v 'grep' | awk '{print $1}'
+      register: jvm_pids
+
+    - name: Ensure a JVM process is found
+      fail:
+        msg: "No WebSphere JVM process found."
+      when: jvm_pids.stdout == ""
+
+    - name: Get high CPU and memory usage of JVM threads
+      shell: |
+        pid={{ jvm_pids.stdout }}
+        top -b -n1 -H -p $pid | grep java | awk '{print $1, $9, $10, $12}' | sort -k2nr | head -n 10
+      register: thread_usage
+
+    - name: Print high CPU and memory usage of JVM threads
+      debug:
+        msg: "High CPU and memory usage of JVM threads on {{ inventory_hostname }}:\n{{ thread_usage.stdout }}"
